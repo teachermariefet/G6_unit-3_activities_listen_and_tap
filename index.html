@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive EFL Listening Game</title>
+    <!-- Tailwind CSS for modern responsive styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Balsamiq Sans -->
+    <link href="https://fonts.googleapis.com/css2?family=Balsamiq+Sans:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Balsamiq Sans', cursive, sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        /* Custom animations and effects */
+        .pop-in {
+            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+        @keyframes popIn {
+            0% { transform: scale(0.8); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .shake {
+            animation: shake 0.4s ease-in-out;
+        }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-10px); }
+            40%, 80% { transform: translateX(10px); }
+        }
+        .pulse-glow {
+            box-shadow: 0 0 25px rgba(59, 130, 246, 0.6);
+        }
+    </style>
+</head>
+<body class="bg-indigo-900 h-screen w-screen overflow-hidden flex flex-col justify-between items-center text-gray-800">
+
+    <!-- Top Utility Bar (Fullscreen & Music Toggle) -->
+    <div class="absolute top-4 right-4 z-50 flex gap-3">
+        <button id="musicToggleBtn" onclick="toggleBackgroundMusic()" class="bg-white/80 hover:bg-white text-indigo-900 font-bold px-4 py-2 rounded-2xl shadow-lg border-2 border-indigo-200 transition transform active:scale-95 flex items-center gap-2 text-lg">
+            🎵 <span id="musicStatusText">Music: OFF</span>
+        </button>
+        <button id="fullscreenBtn" onclick="toggleFullScreen()" class="bg-white/80 hover:bg-white text-indigo-900 font-bold px-4 py-2 rounded-2xl shadow-lg border-2 border-indigo-200 transition transform active:scale-95 flex items-center gap-2 text-lg">
+            ⛶ <span id="fsStatusText">Fullscreen</span>
+        </button>
+    </div>
+
+    <!-- MAIN CONTAINER -->
+    <div id="appContainer" class="relative w-full h-full flex flex-col justify-center items-center overflow-hidden">
+
+        <!-- ================= 1. HOME SCREEN ================= -->
+        <div id="homeScreen" class="absolute inset-0 flex flex-col items-center justify-center p-6 bg-cover bg-center transition-opacity duration-500" style="background-image: url('homescreen.png'); background-color: #312e81;">
+            <!-- Dark overlay for clarity if background image is busy -->
+            <div class="absolute inset-0 bg-black/30"></div>
+            
+            <div class="relative z-10 flex flex-col items-center max-w-2xl text-center bg-white/90 backdrop-blur-md p-10 rounded-3xl shadow-2xl border-4 border-indigo-400 pop-in">
+                <h1 class="text-4xl md:text-5xl font-bold text-indigo-700 mb-4 drop-shadow">🎧 Listen & Tap!</h1>
+                <p class="text-xl md:text-2xl text-gray-600 mb-8">Listen carefully to the audio and tap the correct picture as fast as you can!</p>
+                <button onclick="startGame()" class="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white text-3xl font-bold px-12 py-5 rounded-3xl shadow-xl border-b-6 border-emerald-800 transition transform hover:-translate-y-1 active:translate-y-1 active:border-b-0 cursor-pointer">
+                    🚀 START GAME
+                </button>
+            </div>
+        </div>
+
+        <!-- ================= 2. GAME SCREEN ================= -->
+        <div id="gameScreen" class="absolute inset-0 flex flex-col justify-between p-6 bg-cover bg-center hidden opacity-0 transition-opacity duration-500" style="background-image: url('gamescreen.png'); background-color: #1e1b4b;">
+            <!-- Subtle Overlay -->
+            <div class="absolute inset-0 bg-black/40"></div>
+
+            <!-- HUD Header -->
+            <div class="relative z-10 flex justify-between items-center w-full max-w-5xl mx-auto bg-white/95 backdrop-blur-md px-8 py-4 rounded-3xl shadow-xl border-3 border-indigo-300">
+                <div class="flex items-center gap-3">
+                    <span class="text-2xl font-bold text-indigo-600">🏆 SCORE:</span>
+                    <span id="scoreDisplay" class="text-4xl font-black text-indigo-800 bg-indigo-100 px-4 py-1 rounded-2xl">0</span>
+                </div>
+                
+                <!-- Replay Audio Button -->
+                <button onclick="replayCurrentAudio()" class="bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-white text-xl font-bold px-6 py-3 rounded-2xl shadow-md border-b-4 border-orange-700 transition transform active:scale-95 flex items-center gap-2 cursor-pointer">
+                    🔊 REPLAY AUDIO
+                </button>
+
+                <div class="flex items-center gap-3">
+                    <span class="text-2xl font-bold text-rose-600">⏱️ TIME:</span>
+                    <span id="timerDisplay" class="text-4xl font-black text-rose-700 bg-rose-100 px-4 py-1 rounded-2xl w-24 text-center">60</span>
+                </div>
+            </div>
+
+            <!-- Choices Container -->
+            <div class="relative z-10 flex flex-col md:flex-row justify-center items-center gap-8 md:gap-16 my-auto w-full max-w-5xl mx-auto px-4">
+                <!-- Choice Card 0 -->
+                <div id="card0" onclick="handleChoice(0)" class="bg-white p-6 rounded-3xl shadow-2xl border-6 border-indigo-200 hover:border-indigo-500 transition transform hover:scale-105 active:scale-95 cursor-pointer w-72 h-72 md:w-88 md:h-88 flex flex-col items-center justify-center pop-in relative overflow-hidden">
+                    <img id="img0" src="" alt="Choice 1" class="w-full h-full object-contain pointer-events-none rounded-2xl">
+                </div>
+                <!-- Choice Card 1 -->
+                <div id="card1" onclick="handleChoice(1)" class="bg-white p-6 rounded-3xl shadow-2xl border-6 border-indigo-200 hover:border-indigo-500 transition transform hover:scale-105 active:scale-95 cursor-pointer w-72 h-72 md:w-88 md:h-88 flex flex-col items-center justify-center pop-in relative overflow-hidden">
+                    <img id="img1" src="" alt="Choice 2" class="w-full h-full object-contain pointer-events-none rounded-2xl">
+                </div>
+            </div>
+
+            <!-- Footer spacer / visual anchor -->
+            <div class="relative z-10 h-6"></div>
+        </div>
+
+        <!-- ================= 3. END-OF-GAME SCREEN ================= -->
+        <div id="endScreen" class="absolute inset-0 flex flex-col items-center justify-center p-6 bg-indigo-950/90 backdrop-blur-md hidden opacity-0 transition-opacity duration-500 z-30">
+            <div class="relative z-10 flex flex-col items-center max-w-xl text-center bg-white p-10 rounded-3xl shadow-2xl border-4 border-amber-400 pop-in">
+                <h1 class="text-5xl font-black text-amber-500 mb-2 drop-shadow">⏰ TIME'S UP!</h1>
+                <p class="text-2xl text-gray-600 mb-6">Great job practicing your English listening!</p>
+                
+                <div class="bg-indigo-50 border-4 border-indigo-200 rounded-3xl p-6 mb-8 w-full">
+                    <p class="text-xl font-bold text-indigo-600 mb-1">Your Final Score:</p>
+                    <p id="finalScoreDisplay" class="text-6xl font-black text-indigo-900">0</p>
+                </div>
+
+                <button onclick="restartGame()" class="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white text-3xl font-bold px-12 py-5 rounded-3xl shadow-xl border-b-6 border-indigo-800 transition transform hover:-translate-y-1 active:translate-y-1 active:border-b-0 cursor-pointer">
+                    🔄 PLAY AGAIN
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- JavaScript Game Engine -->
+    <script>
+        // --- VOCABULARY DATASET ---
+        const vocabList = [
+            { name: "go jogging", img: "go jogging.png", audio: "go jogging.mp3" },
+            { name: "listen to music", img: "listen to music.png", audio: "listen to music.mp3" },
+            { name: "play baseball", img: "play baseball.png", audio: "play baseball.mp3" },
+            { name: "play basketball", img: "play basketball.png", audio: "play basketball.mp3" },
+            { name: "ride a bike", img: "ride a bike.png", audio: "ride a bike.mp3" },
+            { name: "study English", img: "study English.png", audio: "study English.mp3" },
+            { name: "surf the Internet", img: "surf the Internet.png", audio: "surf the Internet.mp3" },
+            { name: "watch TV", img: "watch TV.png", audio: "watch TV.mp3" }
+        ];
+
+        // --- GAME STATE ---
+        let score = 0;
+        let timeLeft = 60;
+        let timerInterval = null;
+        let gameActive = false;
+        let currentCorrectItem = null;
+        let lastCorrectItem = null;
+        let currentChoices = [];
+        let isTransitioning = false;
+        let lastIncorrectChoiceIndex = null; // prevents spamming same wrong card
+
+        // Audio Objects & Contexts
+        let currentVocabAudio = null;
+        let audioCtx = null;
+        let musicInterval = null;
+        let isMusicOn = false;
+
+        // --- AUDIO ENGINE (Web Audio API Synthesizers) ---
+        function initAudioContext() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        // Pleasant chime for correct answer
+        function playChimeSound() {
+            try {
+                initAudioContext();
+                const now = audioCtx.currentTime;
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(523.25, now); // C5
+                osc.frequency.setValueAtTime(659.25, now + 0.1); // E5
+                osc.frequency.setValueAtTime(783.99, now + 0.2); // G5
+                osc.frequency.setValueAtTime(1046.50, now + 0.3); // C6
+
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                osc.start(now);
+                osc.stop(now + 0.6);
+            } catch (e) {
+                console.log("Audio chime error:", e);
+            }
+        }
+
+        // Buzzing sound for incorrect answer
+        function playBuzzerSound() {
+            try {
+                initAudioContext();
+                const now = audioCtx.currentTime;
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(130.81, now); // C3
+                osc.frequency.setValueAtTime(110.00, now + 0.15); // A2
+
+                gain.gain.setValueAtTime(0.25, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                osc.start(now);
+                osc.stop(now + 0.35);
+            } catch (e) {
+                console.log("Audio buzzer error:", e);
+            }
+        }
+
+        // Procedural background music generator (subtle rhythmic chords)
+        function startBackgroundMusic() {
+            if (musicInterval) return;
+            const chords = [
+                [261.63, 329.63, 392.00], // C major
+                [220.00, 261.63, 329.63], // A minor
+                [174.61, 220.00, 261.63], // F major
+                [196.00, 246.94, 293.66]  // G major
+            ];
+            let chordIndex = 0;
+
+            musicInterval = setInterval(() => {
+                if (!isMusicOn || !audioCtx) return;
+                try {
+                    const now = audioCtx.currentTime;
+                    const chord = chords[chordIndex];
+                    chordIndex = (chordIndex + 1) % chords.length;
+
+                    chord.forEach(freq => {
+                        const osc = audioCtx.createOscillator();
+                        const gain = audioCtx.createGain();
+
+                        osc.type = 'triangle';
+                        osc.frequency.setValueAtTime(freq, now);
+
+                        // 10% volume relative to max (0.02 gain)
+                        gain.gain.setValueAtTime(0.001, now);
+                        gain.gain.linearRampToValueAtTime(0.02, now + 0.2);
+                        gain.gain.exponentialRampToValueAtTime(0.001, now + 1.8);
+
+                        osc.connect(gain);
+                        gain.connect(audioCtx.destination);
+
+                        osc.start(now);
+                        osc.stop(now + 1.8);
+                    });
+                } catch (e) {
+                    console.log("BGM error:", e);
+                }
+            }, 2000);
+        }
+
+        function stopBackgroundMusic() {
+            if (musicInterval) {
+                clearInterval(musicInterval);
+                musicInterval = null;
+            }
+        }
+
+        function toggleBackgroundMusic() {
+            initAudioContext();
+            isMusicOn = !isMusicOn;
+            const statusText = document.getElementById('musicStatusText');
+            const btn = document.getElementById('musicToggleBtn');
+            
+            if (isMusicOn) {
+                statusText.innerText = "Music: ON";
+                btn.classList.add('bg-indigo-100', 'border-indigo-400');
+                startBackgroundMusic();
+            } else {
+                statusText.innerText = "Music: OFF";
+                btn.classList.remove('bg-indigo-100', 'border-indigo-400');
+                stopBackgroundMusic();
+            }
+        }
+
+        // --- VOCABULARY AUDIO MANAGEMENT ---
+        function playVocabularyAudio(audioFilename, onEndedCallback) {
+            if (currentVocabAudio) {
+                currentVocabAudio.pause();
+                currentVocabAudio = null;
+            }
+
+            // Temporarily duck background music volume/activity if music is on
+            let wasMusicPlaying = isMusicOn && musicInterval;
+            if (wasMusicPlaying) {
+                stopBackgroundMusic();
+            }
+
+            currentVocabAudio = new Audio(audioFilename);
+            currentVocabAudio.volume = 1.0;
+
+            currentVocabAudio.onended = () => {
+                currentVocabAudio = null;
+                if (wasMusicPlaying && isMusicOn) {
+                    startBackgroundMusic();
+                }
+                if (onEndedCallback) onEndedCallback();
+            };
+
+            currentVocabAudio.onerror = (e) => {
+                console.warn("Audio load error for:", audioFilename, e);
+                currentVocabAudio = null;
+                if (wasMusicPlaying && isMusicOn) {
+                    startBackgroundMusic();
+                }
+                if (onEndedCallback) onEndedCallback();
+            };
+
+            currentVocabAudio.play().catch(err => {
+                console.warn("Autoplay blocked or audio failed:", err);
+                if (wasMusicPlaying && isMusicOn) {
+                    startBackgroundMusic();
+                }
+                if (onEndedCallback) onEndedCallback();
+            });
+        }
+
+        function replayCurrentAudio() {
+            if (currentCorrectItem && !isTransitioning) {
+                playVocabularyAudio(currentCorrectItem.audio);
+            }
+        }
+
+        // --- FULLSCREEN API ---
+        function toggleFullScreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => {
+                    console.log("Error attempting to enable fullscreen:", err.message);
+                });
+                document.getElementById('fsStatusText').innerText = "Exit Full";
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                }
+                document.getElementById('fsStatusText').innerText = "Fullscreen";
+            }
+        }
+
+        // --- GAME FLOW LOGIC ---
+        function startGame() {
+            initAudioContext();
+            if (isMusicOn && !musicInterval) {
+                startBackgroundMusic();
+            }
+
+            // Transition screens
+            document.getElementById('homeScreen').classList.add('opacity-0', 'hidden');
+            const gameScreen = document.getElementById('gameScreen');
+            gameScreen.classList.remove('hidden');
+            setTimeout(() => gameScreen.classList.remove('opacity-0'), 50);
+
+            // Reset state
+            score = 0;
+            timeLeft = 60;
+            lastCorrectItem = null;
+            document.getElementById('scoreDisplay').innerText = score;
+            document.getElementById('timerDisplay').innerText = timeLeft;
+
+            gameActive = true;
+            loadNextQuestion();
+
+            // Start Timer
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                if (!gameActive) return;
+                timeLeft--;
+                document.getElementById('timerDisplay').innerText = timeLeft;
+
+                if (timeLeft <= 0) {
+                    endGame();
+                }
+            }, 1000);
+        }
+
+        function loadNextQuestion() {
+            if (!gameActive) return;
+            isTransitioning = false;
+            lastIncorrectChoiceIndex = null;
+
+            // 1. Randomly select correct item with no back-to-back repetition
+            let availableVocab = vocabList.filter(item => item !== lastCorrectItem);
+            let correctItem = availableVocab[Math.floor(Math.random() * availableVocab.length)];
+            currentCorrectItem = correctItem;
+            lastCorrectItem = correctItem;
+
+            // 2. Pick 1 incorrect item from remaining 7 items
+            let remainingVocab = vocabList.filter(item => item !== correctItem);
+            let incorrectItem = remainingVocab[Math.floor(Math.random() * remainingVocab.length)];
+
+            // 3. Randomize left-right position
+            let choices = [correctItem, incorrectItem];
+            if (Math.random() < 0.5) {
+                choices = [incorrectItem, correctItem];
+            }
+            currentChoices = choices;
+
+            // Update image sources directly matching exact local filenames
+            for (let i = 0; i < 2; i++) {
+                const imgEl = document.getElementById(`img${i}`);
+                imgEl.src = choices[i].img;
+
+                const card = document.getElementById(`card${i}`);
+                card.className = "bg-white p-6 rounded-3xl shadow-2xl border-6 border-indigo-200 hover:border-indigo-500 transition transform hover:scale-105 active:scale-95 cursor-pointer w-72 h-72 md:w-88 md:h-88 flex flex-col items-center justify-center pop-in relative overflow-hidden";
+            }
+
+            // 5. Automatically play vocabulary audio
+            playVocabularyAudio(correctItem.audio);
+        }
+
+        function handleChoice(index) {
+            if (!gameActive || isTransitioning) return;
+
+            const selectedItem = currentChoices[index];
+            const isCorrect = (selectedItem === currentCorrectItem);
+            const cardEl = document.getElementById(`card${index}`);
+
+            if (isCorrect) {
+                isTransitioning = true;
+                // Stop any playing vocab audio
+                if (currentVocabAudio) {
+                    currentVocabAudio.pause();
+                    currentVocabAudio = null;
+                }
+
+                playChimeSound();
+                score += 1;
+                document.getElementById('scoreDisplay').innerText = score;
+
+                // Visual feedback for correct answer
+                cardEl.classList.remove('border-indigo-200', 'hover:border-indigo-500');
+                cardEl.classList.add('border-green-500', 'bg-green-50', 'pulse-glow');
+
+                // Short delay before loading next question
+                setTimeout(() => {
+                    if (gameActive) {
+                        loadNextQuestion();
+                    }
+                }, 1000);
+
+            } else {
+                // Prevent multi-tap spamming of the exact same incorrect choice repeatedly
+                if (lastIncorrectChoiceIndex === index) return;
+                lastIncorrectChoiceIndex = index;
+
+                playBuzzerSound();
+
+                // Visual feedback for incorrect answer (shake & red border)
+                cardEl.classList.add('shake', 'border-rose-500', 'bg-rose-50');
+                setTimeout(() => {
+                    cardEl.classList.remove('shake');
+                }, 400);
+
+                // Allow retry on remaining picture (do not advance immediately, no point deduction)
+            }
+        }
+
+        function endGame() {
+            gameActive = false;
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+            if (currentVocabAudio) {
+                currentVocabAudio.pause();
+                currentVocabAudio = null;
+            }
+            stopBackgroundMusic();
+
+            document.getElementById('finalScoreDisplay').innerText = score;
+
+            // Transition to end screen
+            const endScreen = document.getElementById('endScreen');
+            endScreen.classList.remove('hidden');
+            setTimeout(() => endScreen.classList.remove('opacity-0'), 50);
+        }
+
+        function restartGame() {
+            const endScreen = document.getElementById('endScreen');
+            endScreen.classList.add('opacity-0');
+            setTimeout(() => endScreen.classList.add('hidden'), 500);
+
+            startGame();
+        }
+    </script>
+</body>
+</html>
